@@ -8,11 +8,22 @@ const { Document, Packer, Paragraph, Table, TableRow, TableCell, WidthType } = r
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false,
-  max: 5
-});
+
+// Khởi tạo Pool an toàn (lazy initialization)
+let pool;
+function getPool() {
+  if (!pool) {
+    if (!process.env.DATABASE_URL) {
+      throw new Error("Chưa cấu hình biến môi trường DATABASE_URL trên Vercel!");
+    }
+    pool = new Pool({
+      connectionString: process.env.DATABASE_URL,
+      ssl: { rejectUnauthorized: false },
+      max: 5
+    });
+  }
+  return pool;
+}
 
 const ROLES = ["ADMIN", "CLASS_LEADER", "CLASS_VICE", "TEAM_LEADER"];
 const roleName = {
@@ -25,49 +36,58 @@ const roleName = {
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-app.use(session({
-  store: process.env.DATABASE_URL ? new pgSession({
-    pool,
-    tableName: "user_sessions",
-    createTableIfMissing: true
-  }) : undefined,
-  secret: process.env.SESSION_SECRET || "dev-only-change-me",
-  resave: false,
-  saveUninitialized: false,
-  cookie: {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    maxAge: 8 * 60 * 60 * 1000
-  }
-}));
-
+// ĐẶT APP.USE(EXPRESS.STATIC) Ở ĐÂY ĐỂ KHÔNG BỊ DATABASE MIDDLEWARE CHẶN GÂY LỖI 500 CHO CSS/JS
 app.use(express.static("public"));
 
+// Cấu hình Session sử dụng pg-session linh hoạt
+app.use((req, res, next) => {
+  try {
+    const sessionMiddleware = session({
+      store: process.env.DATABASE_URL ? new pgSession({
+        pool: getPool(),
+        tableName: "user_sessions",
+        createTableIfMissing: true
+      }) : undefined,
+      secret: process.env.SESSION_SECRET || "dev-only-change-me",
+      resave: false,
+      saveUninitialized: false,
+      cookie: {
+        httpOnly: true,
+        sameSite: "lax",
+        secure: process.env.NODE_ENV === "production",
+        maxAge: 8 * 60 * 60 * 1000
+      }
+    });
+    sessionMiddleware(req, res, next);
+  } catch (e) {
+    next(e);
+  }
+});
+
 async function q(text, params = []) {
-  const r = await pool.query(text, params);
+  const r = await getPool().query(text, params);
   return r.rows;
 }
 async function one(text, params = []) {
-  const r = await pool.query(text, params);
+  const r = await getPool().query(text, params);
   return r.rows[0] || null;
 }
 function ok(res, data = {}) { return res.json({ ok: true, ...data }); }
 function fail(res, code, message) { return res.status(code).json({ ok: false, error: message }); }
 
 function auth(req, res, next) {
-  if (!req.session.user) return fail(res, 401, "Bạn chưa đăng nhập hoặc phiên đã hết hạn.");
+  if (!req.session || !req.session.user) return fail(res, 401, "Bạn chưa đăng nhập hoặc phiên đã hết hạn.");
   next();
 }
 function role(...roles) {
   return (req, res, next) => {
-    if (!req.session.user) return fail(res, 401, "Bạn chưa đăng nhập.");
+    if (!req.session || !req.session.user) return fail(res, 401, "Bạn chưa đăng nhập.");
     if (!roles.includes(req.session.user.role)) return fail(res, 403, "Bạn không có quyền thực hiện thao tác này.");
     next();
   };
 }
 function pageAuth(req, res, next) {
-  if (!req.session.user) return res.redirect("/login");
+  if (!req.session || !req.session.user) return res.redirect("/login");
   next();
 }
 function monthKey() {
@@ -79,7 +99,7 @@ async function currentMonth() {
   return one("INSERT INTO months(month,year) VALUES($1,$2) ON CONFLICT(month,year) DO UPDATE SET month=EXCLUDED.month RETURNING *", [m.month, m.year]);
 }
 function canSeeStudent(user, student) {
-  return user.role !== "TEAM_LEADER" || Number(student.team_id) === Number(user.team_id);
+  return user.role !== "TEAM_LEADER" || Number(user.team_id) === Number(student.team_id);
 }
 function normalizeId(v) {
   const n = Number(v);
@@ -226,8 +246,31 @@ async function ensureAdminOnly() {
   }
 }
 
+let initPromise;
+function ensureDb() {
+  if (!initPromise) {
+    initPromise = initDb().catch(err => {
+      console.error("Database initialization failed:", err);
+      initPromise = null;
+      throw err;
+    });
+  }
+  return initPromise;
+}
+
+// Middleware kiểm tra Database chỉ áp dụng cho API / Route phía sau
+app.use(async (req, res, next) => {
+  try {
+    await ensureDb();
+    next();
+  } catch (e) {
+    res.status(500).json({ ok: false, error: "Không kết nối được database Supabase. Hãy kiểm tra lại biến DATABASE_URL." });
+  }
+});
+
+// --- Định tuyến Routes ---
 app.get("/login",(req,res)=>{
-  if(req.session.user) return res.redirect("/");
+  if(req.session && req.session.user) return res.redirect("/");
   res.sendFile(__dirname + "/public/login.html");
 });
 app.post("/login",async(req,res)=>{
@@ -469,25 +512,9 @@ async function dashboardDataForExport(req){
 }
 
 app.use((err,req,res,next)=>{
-  console.error(err);
+  console.error("Global Error Handler:", err);
   if(res.headersSent) return next(err);
-  fail(res,500,"Có lỗi máy chủ. Kiểm tra log để biết chi tiết.");
-});
-
-let initPromise;
-function ensureDb() {
-  if (!initPromise) {
-    initPromise = initDb().catch(err => {
-      console.error("Database initialization failed:", err);
-      initPromise = null;
-      throw err;
-    });
-  }
-  return initPromise;
-}
-app.use(async (req,res,next)=>{
-  try { await ensureDb(); next(); }
-  catch (e) { res.status(500).json({ok:false,error:"Không kết nối được database Supabase."}); }
+  fail(res,500,err.message || "Có lỗi máy chủ.");
 });
 
 module.exports = app;
