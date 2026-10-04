@@ -1,6 +1,6 @@
 {
-  "name": "class-manager-green-v3",
-  "version": "4.0.0",
+  "name": "class-manager",
+  "version": "5.0.0",
   "private": true,
   "scripts": {
     "start": "node server.js",
@@ -10,12 +10,13 @@
     "bcryptjs": "^2.4.3",
     "connect-pg-simple": "^10.0.0",
     "docx": "^9.2.0",
+    "dotenv": "^16.4.5",
     "exceljs": "^4.4.0",
     "express": "^4.21.2",
     "express-session": "^1.18.1",
     "pg": "^8.16.3"
   },
   "engines": {
-    "node": ">=22"
+    "node": ">=20"
   }
 }

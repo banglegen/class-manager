@@ -1,12 +1,27 @@
 <!doctype html>
-<html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Đăng nhập · Quản lý lớp</title><link rel="stylesheet" href="/style.css"></head>
-<body class="login-page"><div class="login-card">
-<div class="logo">🌿</div><h1>Quản lý lớp</h1><p>Đăng nhập để tiếp tục</p>
-<div id="err" class="error-box" style="display:none">Sai tên đăng nhập hoặc mật khẩu.</div>
-<form method="post" action="/login">
-<label>Tên đăng nhập</label><input name="username" autocomplete="username" required autofocus>
-<label>Mật khẩu</label><input name="password" type="password" autocomplete="current-password" required>
-<button class="btn primary full">Đăng nhập</button>
-</form>
-</div><script>if(new URLSearchParams(location.search).has("error"))document.getElementById("err").style.display="block";</script></body></html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Đăng nhập · Quản lý lớp</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body class="login-page">
+  <div class="login-card">
+    <div class="logo">🌿</div>
+    <h1>Quản lý lớp</h1>
+    <p>Đăng nhập để tiếp tục</p>
+    <div id="err" class="error-box" style="display:none">Sai tên đăng nhập hoặc mật khẩu.</div>
+    <form method="post" action="/login">
+      <label for="u">Tên đăng nhập</label>
+      <input id="u" name="username" autocomplete="username" required autofocus>
+      <label for="p">Mật khẩu</label>
+      <input id="p" name="password" type="password" autocomplete="current-password" required>
+      <button class="btn primary full">Đăng nhập</button>
+    </form>
+  </div>
+  <script>
+    if (new URLSearchParams(location.search).has("error")) document.getElementById("err").style.display = "block";
+  </script>
+</body>
+</html>

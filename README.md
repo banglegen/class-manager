@@ -1,135 +1,66 @@
-# Quản lý lớp xanh v4 — Vercel + Supabase
+# Quản lý lớp v5 — Vercel + Supabase
 
-Bản này dành cho:
-- Vercel: chạy website + Express API.
-- Supabase: PostgreSQL database dùng chung.
-- GitHub: lưu source code.
+- **Vercel**: chạy website + API (Express).
+- **Supabase**: PostgreSQL dùng chung. App **tự tạo bảng** lần đầu chạy, không cần chạy SQL thủ công.
 
-Vercel hỗ trợ deploy Express trực tiếp. Database và session không lưu trên filesystem của Vercel; dữ liệu lâu dài nằm ở Supabase PostgreSQL.
+## 1. Tạo database Supabase
+1. supabase.com → **New project** (nhớ Database password, region Singapore).
+2. Bấm **Connect** → **Connection string** → chọn **Transaction pooler** (cổng 6543) — phù hợp nhất với Vercel.
+   (Session pooler cổng 5432 cũng dùng được.)
+3. Thay `[YOUR-PASSWORD]` bằng mật khẩu thật. Mật khẩu chỉ nên gồm chữ + số để tránh lỗi ký tự đặc biệt.
 
-## 1. Tạo Supabase
-
-1. Vào https://supabase.com/
-2. Tạo New project.
-3. Ghi nhớ database password.
-4. Vào Connect.
-5. Copy connection string PostgreSQL, ưu tiên Session pooler nếu Supabase hiển thị.
-6. Có thể dùng SQL Editor để kiểm tra database.
-
-Ví dụ biến:
-```env
-DATABASE_URL=postgresql://...
-```
-
-Không đưa DATABASE_URL lên GitHub.
-
-## 2. Chạy local
-
-Tạo `.env`:
-```env
-DATABASE_URL=postgresql://...
-SESSION_SECRET=chuoi-bi-mat-dai
-NODE_ENV=development
-SEED_DEMO=true
-ADMIN_USERNAME=admin
-ADMIN_PASSWORD=admin123
-```
-
-Sau đó:
+## 2. Chạy thử trên máy
 ```bash
 npm install
+copy .env.example .env      # Windows (Mac/Linux: cp .env.example .env)
+```
+Mở `.env`, sửa `DATABASE_URL`, `SESSION_SECRET`, `ADMIN_PASSWORD`. Đặt `SEED_DEMO=true` nếu muốn có học sinh mẫu để thử.
+```bash
 npm start
 ```
-
-Mở:
-http://localhost:3000
-
-Lần đầu app tự tạo các bảng và dữ liệu demo nếu `SEED_DEMO=true`.
+Mở http://localhost:3000 → đăng nhập bằng `ADMIN_USERNAME` / `ADMIN_PASSWORD`.
+Kiểm tra DB: http://localhost:3000/api/health
 
 ## 3. Đưa lên GitHub
-
 ```bash
 git init
 git add .
-git commit -m "class manager v4 vercel supabase"
+git commit -m "class manager v5"
 git branch -M main
-git remote add origin https://github.com/TEN-GITHUB/class-manager-green.git
+git remote add origin https://github.com/TEN-BAN/class-manager.git
 git push -u origin main
 ```
 
-`.gitignore` đã loại `.env`, `node_modules`, database SQLite cũ.
-
 ## 4. Deploy Vercel
+1. vercel.com → **Add New → Project** → import repo.
+2. Framework Preset: **Other**. Để nguyên các ô build.
+3. Thêm **Environment Variables** *trước khi* Deploy:
 
-Vào https://vercel.com/
+| Tên | Giá trị |
+|---|---|
+| `DATABASE_URL` | chuỗi kết nối Supabase |
+| `SESSION_SECRET` | chuỗi ngẫu nhiên dài |
+| `ADMIN_USERNAME` | admin |
+| `ADMIN_PASSWORD` | mật khẩu admin mạnh |
+| `SEED_DEMO` | false |
 
-1. Add New -> Project.
-2. Import repository GitHub.
-3. Chọn repository.
-4. Framework Preset: Other nếu Vercel hỏi.
-5. Deploy.
+4. Deploy. Sửa biến môi trường xong phải **Redeploy**.
 
-Vercel sẽ dùng `vercel.json` để chạy Express server.
+## 5. Sử dụng
+Admin đăng nhập → **Các tổ** (tạo/đổi tên tổ) → **Học sinh** (thêm lẻ hoặc *Nhập nhiều học sinh*) → **Tài khoản** (tạo lớp trưởng, lớp phó, tổ trưởng) → **Quy tắc & cài đặt** (chỉnh điểm gốc, quy tắc cộng/trừ).
 
-## 5. Environment Variables trên Vercel
+| Quyền | Làm được |
+|---|---|
+| Admin | Tất cả |
+| Lớp trưởng | Học sinh, ghi điểm, hạnh kiểm, xuất Excel/Word |
+| Lớp phó | Ghi điểm, hạnh kiểm, xuất Excel/Word |
+| Tổ trưởng | Xem + ghi điểm cho học sinh trong tổ mình |
 
-Project -> Settings -> Environment Variables.
+**Cách tính điểm**: Tổng = Điểm gốc (mặc định 100) + cộng − trừ, mỗi tháng tính lại từ đầu.
+Xếp loại: Tốt ≥ 90, Khá ≥ 80, Trung bình ≥ 65, Yếu < 65.
 
-Thêm:
-
-```text
-DATABASE_URL = connection string Supabase
-SESSION_SECRET = một chuỗi bí mật dài
-NODE_ENV = production
-SEED_DEMO = false
-ADMIN_USERNAME = admin
-ADMIN_PASSWORD = mật khẩu admin
-```
-
-Sau khi thêm/chỉnh biến môi trường, redeploy project.
-
-## 6. Tài khoản
-
-Nếu `SEED_DEMO=false`, lần chạy đầu app tự tạo tài khoản admin:
-- username = ADMIN_USERNAME
-- password = ADMIN_PASSWORD
-
-Sau khi đăng nhập, Admin vào `Tài khoản` để tạo:
-- Lớp trưởng
-- Lớp phó
-- Tổ trưởng
-
-## 7. Quyền
-
-Admin:
-- Học sinh
-- Quy tắc điểm
-- Tài khoản
-- Điểm
-- Hạnh kiểm
-- Excel/Word
-
-Lớp trưởng:
-- Học sinh
-- Điểm
-- Hạnh kiểm
-- Excel/Word
-
-Lớp phó:
-- Điểm
-- Hạnh kiểm
-- Excel/Word
-
-Tổ trưởng:
-- Xem dữ liệu của tổ mình
-- Ghi điểm cho học sinh trong tổ mình
-
-## 8. Quan trọng
-
-Không dùng `class.db` trên Vercel. Vercel là môi trường chạy ứng dụng; dữ liệu lâu dài phải nằm ở database ngoài. Bản này dùng Supabase PostgreSQL.
-
-Export Excel/Word được tạo trong request rồi gửi về trình duyệt, không cần lưu file lâu dài trên Vercel.
-
-## 9. Nếu muốn chuyển dữ liệu từ v2
-
-Không tự copy `class.db` lên Vercel. Cần chạy một script migrate SQLite -> PostgreSQL để giữ dữ liệu cũ.
+## 6. Lưu ý
+- Tháng được tính theo giờ Việt Nam. Có thể chọn tháng cũ ở góc trên bên phải để xem/xuất báo cáo.
+- Bảng đã bật RLS nên không thể bị đọc qua Supabase Data API; chỉ server mới truy cập được DB.
+- Gói Supabase miễn phí tự tạm dừng sau ~1 tuần không dùng, vào dashboard bấm Restore.
+- Không commit file `.env`.
